@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "qiong-builds",
+  "compatibility_date": "2026-07-03",
+  "pages_build_output_dir": "./web/dist",
+  "kv_namespaces": [
+    {
+      "binding": "HAPPY_ENGLISH_KV",
+      "id": "a9dab070ac7346ee831c8c2ad1e43a39"
+    }
+  ],
+  "vars": {
+    "NODE_ENV": "production"
+  }
+}
