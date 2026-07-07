@@ -31,3 +31,7 @@ pnpm-debug.log*
 # Local family/admin secrets
 .admin-code.txt
 .recovery-code.txt
+
+# Temporary auth helpers
+.github_device_code.json
+.github_device_login.py
