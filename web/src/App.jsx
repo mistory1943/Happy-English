@@ -877,16 +877,39 @@ export default function App() {
             {customMsg && <div style={{ marginTop: 10, fontSize: 15, lineHeight: 1.5, color: customMsg.startsWith("已加入") ? C.jade : C.persimmon, fontWeight: 700 }}>{customMsg}</div>}
           </div>
 
-          {/* 四步进度条 */}
+          {/* 四步进度条：可点击跳转 */}
           <div style={{ display: "flex", gap: 6, marginTop: 14 }}>
-            {STAGES.map((s, i) => (
-              <div key={i} style={{ flex: 1, textAlign: "center" }}>
-                <div style={{ height: 8, borderRadius: 4, background: i < stage ? C.jade : i === stage ? C.persimmon : C.line }} />
-                <div style={{ fontSize: 13, marginTop: 4, fontWeight: i === stage ? 700 : 400, color: i === stage ? C.persimmon : i < stage ? C.jade : C.inkSoft }}>
-                  {i + 1} {s}
-                </div>
-              </div>
-            ))}
+            {STAGES.map((s, i) => {
+              const active = i === stage;
+              const done = i < stage;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setStage(i)}
+                  disabled={isReviewMode}
+                  aria-label={`跳到第${i + 1}步：${s}`}
+                  aria-current={active ? "step" : undefined}
+                  style={{
+                    flex: 1,
+                    textAlign: "center",
+                    padding: 0,
+                    minHeight: 58,
+                    border: "none",
+                    borderRadius: 10,
+                    background: "transparent",
+                    cursor: isReviewMode ? "default" : "pointer",
+                    fontFamily: sans,
+                    WebkitTapHighlightColor: "transparent",
+                  }}
+                >
+                  <div style={{ height: 8, borderRadius: 4, background: done ? C.jade : active ? C.persimmon : C.line }} />
+                  <div style={{ fontSize: 13, marginTop: 8, fontWeight: active ? 700 : 400, color: active ? C.persimmon : done ? C.jade : C.inkSoft }}>
+                    {i + 1} {s}
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
           {/* ===== 第1步：学单词 ===== */}
