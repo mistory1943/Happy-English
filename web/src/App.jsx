@@ -231,7 +231,6 @@ const polishEnglish = (en, zh = "") => {
 };
 
 export default function App() {
-  console.log('[APP DEBUG] rendering, day=', state.day, 'stage=', state.stage, 'stageDay=', state.stageDay, 'me=', me?.id);
   const [tab, setTab] = useState("today");
   const [state, setState] = useState(defaultState);
   const [loaded, setLoaded] = useState(false);
@@ -394,14 +393,6 @@ export default function App() {
   const lessonIdx = Math.min(((viewDayNum - 1) - Math.floor((viewDayNum - 1) / 3)) % LESSONS.length, LESSONS.length - 1);
   const lesson = LESSONS[lessonIdx];
   const isReviewDay = viewDayNum % 3 === 0 && Object.keys(state.log).length >= 3;
-  const viewWords = viewDay === null
-    ? (isReviewDay ? customWords : [...weakWords.filter((x) => !lesson.words.some((lw) => lw.w === x.w)), ...lesson.words, ...customWords.filter((x) => !lesson.words.some((lw) => lw.w === x.w))])
-    : lesson.words;
-  const viewPhrases = viewDay === null
-    ? (isReviewDay ? customPhrases : [...weakPhrases, ...lesson.phrases.map((p, i) => ({ ...p, id: `l${lessonIdx}p${i}` })), ...customPhrases])
-    : lesson.phrases.map((p, i) => ({ ...p, id: `l${lessonIdx}p${i}` }));
-  const isReviewMode = viewDay !== null;
-
   const customItems = state.customItems || [];
   const customWords = customItems
     .filter((item) => item.type === "word" && item.w && state.wordLog[item.w]?.status !== "已掌握")
@@ -413,10 +404,17 @@ export default function App() {
   // 之前没记住的单词，最多3个，加入今天的单词任务
   const weakWords = Object.entries(state.wordLog).filter(([, e]) => e.status === "需加强").slice(0, 3)
     .map(([w, e]) => ({ w, zh: e.zh, tip: e.tip, isWeak: true }));
+  const weakPhrases = state.weakQueue.slice(0, 2).map((id) => ({ id, ...state.log[id], isWeak: true })).filter((p) => p.en);
+  const viewWords = viewDay === null
+    ? (isReviewDay ? customWords : [...weakWords.filter((x) => !lesson.words.some((lw) => lw.w === x.w)), ...lesson.words, ...customWords.filter((x) => !lesson.words.some((lw) => lw.w === x.w))])
+    : lesson.words;
+  const viewPhrases = viewDay === null
+    ? (isReviewDay ? customPhrases : [...weakPhrases, ...lesson.phrases.map((p, i) => ({ ...p, id: `l${lessonIdx}p${i}` })), ...customPhrases])
+    : lesson.phrases.map((p, i) => ({ ...p, id: `l${lessonIdx}p${i}` }));
+  const isReviewMode = viewDay !== null;
   const viewWordsAll = viewDay === null
     ? [...weakWords.filter((x) => !viewWords.some((vw) => vw.w === x.w)), ...viewWords]
     : viewWords;
-  const weakPhrases = state.weakQueue.slice(0, 2).map((id) => ({ id, ...state.log[id], isWeak: true })).filter((p) => p.en);
   const viewPhrasesAll = viewDay === null ? [...weakPhrases, ...viewPhrases] : viewPhrases;
 
   const wordDone = (w) => state.wordLog[w]?.lastDay === viewDayNum;
