@@ -161,6 +161,8 @@ const SentenceIPA = ({ text, style = {} }) => {
 const cleanWords = (s) => s.toLowerCase().replace(/[^a-z'\s]/g, "").split(/\s+/).filter(Boolean);
 let lastSpeakAt = 0;
 let currentPronunciationAudio = null;
+let slowSpeechRunId = 0;
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 function fallbackSpeech(text, rate = 0.8) {
   try {
     const synth = window.speechSynthesis;
@@ -179,6 +181,7 @@ function fallbackSpeech(text, rate = 0.8) {
   } catch (e) {}
 }
 function speak(text, rate = 0.8) {
+  slowSpeechRunId += 1;
   const src = AUDIO_MANIFEST[text] || `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encodeURIComponent(String(text || "").slice(0, 200))}`;
   if (src) {
     try {
@@ -200,11 +203,57 @@ function speak(text, rate = 0.8) {
   }
   fallbackSpeech(text, rate);
 }
+function playAudioOnce(src, rate = 0.92) {
+  return new Promise((resolve) => {
+    try {
+      if (currentPronunciationAudio) {
+        currentPronunciationAudio.pause();
+        currentPronunciationAudio.currentTime = 0;
+      }
+      const audio = new Audio(src);
+      audio.preload = "auto";
+      audio.playbackRate = rate;
+      currentPronunciationAudio = audio;
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        resolve();
+      };
+      audio.onended = finish;
+      audio.onerror = finish;
+      const p = audio.play();
+      if (p?.catch) p.catch(finish);
+      setTimeout(finish, 3500);
+    } catch {
+      resolve();
+    }
+  });
+}
+async function speakWordsSlowly(text, gapMs = 900) {
+  const words = cleanWords(text);
+  if (!words.length) return speak(text, 0.5);
+  const runId = slowSpeechRunId + 1;
+  slowSpeechRunId = runId;
+  for (const word of words) {
+    if (runId !== slowSpeechRunId) return;
+    const src = AUDIO_MANIFEST[word] || `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encodeURIComponent(word)}`;
+    await playAudioOnce(src, 0.9);
+    if (runId !== slowSpeechRunId) return;
+    await wait(gapMs);
+  }
+}
 function speakFromTap(event, text, rate = 0.8) {
   const now = Date.now();
   if (now - lastSpeakAt < 250) return;
   lastSpeakAt = now;
   speak(text, rate);
+}
+function speakSlowFromTap(event, text) {
+  const now = Date.now();
+  if (now - lastSpeakAt < 250) return;
+  lastSpeakAt = now;
+  speakWordsSlowly(text, 900);
 }
 function evaluateWords(targetEn, transcript) {
   const target = cleanWords(targetEn);
@@ -1028,7 +1077,7 @@ export default function App() {
                     <ClipBox id={p.id} target={p.en} />
                     <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
                       <button data-speak-text={p.en} data-speak-rate="0.8" onPointerDown={(e) => speakFromTap(e, p.en, 0.8)} onClick={(e) => speakFromTap(e, p.en, 0.8)} onTouchEnd={(e) => speakFromTap(e, p.en, 0.8)} style={btn(C.jadeSoft, C.jade, { flex: 1 })}>🔊 常速</button>
-                      <button data-speak-text={p.en} data-speak-rate="0.5" onPointerDown={(e) => speakFromTap(e, p.en, 0.5)} onClick={(e) => speakFromTap(e, p.en, 0.5)} onTouchEnd={(e) => speakFromTap(e, p.en, 0.5)} style={btn(C.goldSoft, C.gold, { flex: 1 })}>🐢 慢速</button>
+                      <button onPointerDown={(e) => speakSlowFromTap(e, p.en)} onClick={(e) => speakSlowFromTap(e, p.en)} onTouchEnd={(e) => speakSlowFromTap(e, p.en)} style={btn(C.goldSoft, C.gold, { flex: 1 })}>🐢 慢读</button>
                       <button onClick={() => startRecording(p.id, p.en)} style={btn(isRec ? C.persimmon : C.persimmonSoft, isRec ? "#fff" : C.persimmon, { flex: 1 })}>
                         {isRec ? "⏹ 说完点这里" : "🎤 跟读录音"}
                       </button>
