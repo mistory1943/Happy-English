@@ -430,6 +430,24 @@ export default function App() {
   const phrasesLearned = viewPhrasesAll.filter((p) => state.log[p.id]?.lastDay === viewDayNum).length;
 
   const setStage = (s) => { if (isReviewMode) return; save({ ...state, stage: s, stageDay: day }); };
+  const viewingToday = viewDay === null;
+  const canGoPrevDay = viewDayNum > 1;
+  const canGoNextDay = viewDayNum < day;
+  const goPrevDay = () => {
+    if (!canGoPrevDay) return;
+    setViewDay(viewDayNum - 1);
+    resetDayUI();
+  };
+  const goNextDay = () => {
+    if (!canGoNextDay) return;
+    const next = viewDayNum + 1;
+    setViewDay(next === day ? null : next);
+    resetDayUI();
+  };
+  const goToday = () => {
+    setViewDay(null);
+    resetDayUI();
+  };
 
   // ---------- 动作 ----------
   const markWord = (x) => {
@@ -831,13 +849,29 @@ export default function App() {
       <div style={{ padding: "24px 20px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
         <div>
           <div style={{ fontFamily: serif, fontSize: 26, fontWeight: 700, color: C.jade }}>乐学英语</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
-            <button onClick={() => setViewDay(isReviewMode ? null : Math.max(1, (viewDay === null ? day : viewDay) - 1))} disabled={isReviewMode ? false : (viewDay === null ? day : viewDay) <= 1} style={{ minHeight: 40, padding: "0 14px", borderRadius: 12, border: `2px solid ${C.line}`, background: C.card, color: C.ink, fontWeight: 700, fontSize: 18 }}>‹</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={goPrevDay}
+              disabled={!canGoPrevDay}
+              aria-label="查看上一天"
+              style={{ minHeight: 40, padding: "0 12px", borderRadius: 12, border: `2px solid ${C.line}`, background: canGoPrevDay ? C.card : C.line, color: canGoPrevDay ? C.ink : C.inkSoft, fontWeight: 700, fontSize: 15 }}
+            >
+              ← 上一天
+            </button>
             <div style={{ fontSize: 17, color: C.inkSoft }}>
-              第 {viewDayNum} 天 · {isReviewDay ? "复习测验日" : `今日课程：${lesson.title}`}{isReviewMode ? "（回顾模式）" : ""}
+              第 {viewDayNum} 天 · {viewingToday ? "今天" : "回顾"} · {isReviewDay ? "复习测验日" : `课程：${lesson.title}`}
             </div>
-            <button onClick={() => setViewDay(isReviewMode ? null : (viewDay === null ? day : viewDay) + 1)} disabled={isReviewMode || ((viewDay === null ? day : viewDay) + 1 > day)} style={{ minHeight: 40, padding: "0 14px", borderRadius: 12, border: `2px solid ${C.line}`, background: C.card, color: C.ink, fontWeight: 700, fontSize: 18 }}>›</button>
-            {isReviewMode && <button onClick={() => setViewDay(null)} style={{ minHeight: 40, padding: "0 16px", borderRadius: 12, border: "none", background: C.jade, color: "#fff", fontWeight: 700, fontSize: 16 }}>回到今天</button>}
+            <button
+              type="button"
+              onClick={goNextDay}
+              disabled={!canGoNextDay}
+              aria-label="查看下一天"
+              style={{ minHeight: 40, padding: "0 12px", borderRadius: 12, border: `2px solid ${C.line}`, background: canGoNextDay ? C.card : C.line, color: canGoNextDay ? C.ink : C.inkSoft, fontWeight: 700, fontSize: 15 }}
+            >
+              {canGoNextDay ? (viewDayNum + 1 === day ? "到今天 →" : "下一天 →") : "已是今天"}
+            </button>
+            {!viewingToday && <button type="button" onClick={goToday} style={{ minHeight: 40, padding: "0 14px", borderRadius: 12, border: "none", background: C.jade, color: "#fff", fontWeight: 700, fontSize: 15 }}>回到今天</button>}
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
@@ -845,7 +879,7 @@ export default function App() {
             👤 {me.nickname} · 退出登录
           </button>
           {!isReviewMode && <button onClick={nextDay} style={{ fontSize: 14, padding: "6px 12px", borderRadius: 10, border: `2px dashed ${C.inkSoft}`, background: "transparent", color: C.inkSoft }}>
-            演示：下一天 →
+            演示：进入第 {day + 1} 天 →
           </button>}
         </div>
       </div>
