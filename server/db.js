@@ -26,7 +26,23 @@ function persist() {
   });
 }
 
-const DEFAULT_STATE = { day: 1, stage: 0, stageDay: 1, log: {}, wordLog: {}, history: {}, weakQueue: [] };
+const DEFAULT_STATE = { day: 1, startDate: null, stage: 0, stageDay: 1, log: {}, wordLog: {}, history: {}, weakQueue: [], studySeconds: 0, studyByDate: {}, customItems: [] };
+const todayKey = () => new Date().toISOString().slice(0, 10);
+const dateFromKey = (key) => new Date(`${key}T00:00:00Z`);
+const daysBetween = (start, end) => Math.floor((dateFromKey(end) - dateFromKey(start)) / 86400000);
+const isDateKey = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+function normalizeStudyState(raw, today = todayKey()) {
+  const input = raw && typeof raw === "object" ? raw : {};
+  const studyByDate = input.studyByDate && typeof input.studyByDate === "object" ? input.studyByDate : {};
+  const firstStudyDate = Object.keys(studyByDate).filter(isDateKey).sort()[0];
+  const startDate = isDateKey(input.startDate) ? input.startDate : (firstStudyDate || today);
+  const safeStartDate = daysBetween(startDate, today) > 0 ? startDate : today;
+  const derivedDay = Math.max(1, daysBetween(safeStartDate, today) + 1);
+  const rawStageDay = Math.max(1, Number(input.stageDay || derivedDay));
+  const stageDay = Math.min(rawStageDay, derivedDay);
+  const stage = rawStageDay === derivedDay ? Math.max(0, Math.min(Number(input.stage || 0), 3)) : 0;
+  return { ...DEFAULT_STATE, ...input, startDate: safeStartDate, day: derivedDay, stage, stageDay };
+}
 
 export function getUserByUsername(username) {
   return data.users.find((u) => u.username === username) || null;
@@ -41,9 +57,9 @@ export function createUser(username, passwordHash) {
   return user;
 }
 export function getState(userId) {
-  return data.states[userId] ? JSON.parse(JSON.stringify(data.states[userId])) : DEFAULT_STATE;
+  return normalizeStudyState(data.states[userId] ? JSON.parse(JSON.stringify(data.states[userId])) : DEFAULT_STATE);
 }
 export function saveState(userId, stateObj) {
-  data.states[userId] = stateObj;
+  data.states[userId] = normalizeStudyState(stateObj);
   persist();
 }

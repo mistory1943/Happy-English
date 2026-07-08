@@ -1,8 +1,50 @@
 // Cloudflare Worker backend for 乐学英语
 // Keeps the original frontend API contract: /auth/*, /api/me, /api/state.
 
-const DEFAULT_STATE = { day: 1, stage: 0, stageDay: 1, log: {}, wordLog: {}, history: {}, weakQueue: [] };
+const DEFAULT_STATE = { day: 1, startDate: null, stage: 0, stageDay: 1, log: {}, wordLog: {}, history: {}, weakQueue: [], studySeconds: 0, studyByDate: {}, customItems: [] };
 const encoder = new TextEncoder();
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function dateFromKey(key) {
+  return new Date(`${key}T00:00:00Z`);
+}
+
+function daysBetween(start, end) {
+  return Math.floor((dateFromKey(end) - dateFromKey(start)) / 86400000);
+}
+
+function isDateKey(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+}
+
+function normalizeStudyState(raw, today = todayKey()) {
+  const input = raw && typeof raw === "object" ? raw : {};
+  const studyByDate = input.studyByDate && typeof input.studyByDate === "object" ? input.studyByDate : {};
+  const firstStudyDate = Object.keys(studyByDate).filter(isDateKey).sort()[0];
+  const startDate = isDateKey(input.startDate) ? input.startDate : (firstStudyDate || today);
+  const safeStartDate = daysBetween(startDate, today) > 0 ? startDate : today;
+  const derivedDay = Math.max(1, daysBetween(safeStartDate, today) + 1);
+  const rawStageDay = Math.max(1, Number(input.stageDay || derivedDay));
+  const stageDay = Math.min(rawStageDay, derivedDay);
+  const stage = rawStageDay === derivedDay ? Math.max(0, Math.min(Number(input.stage || 0), 3)) : 0;
+  return {
+    ...DEFAULT_STATE,
+    ...input,
+    log: input.log && typeof input.log === "object" ? input.log : {},
+    wordLog: input.wordLog && typeof input.wordLog === "object" ? input.wordLog : {},
+    history: input.history && typeof input.history === "object" ? input.history : {},
+    weakQueue: Array.isArray(input.weakQueue) ? input.weakQueue : [],
+    studyByDate,
+    customItems: Array.isArray(input.customItems) ? input.customItems : [],
+    startDate: safeStartDate,
+    day: derivedDay,
+    stage,
+    stageDay,
+  };
+}
 
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
@@ -114,6 +156,7 @@ async function translateChineseToEnglish(text) {
 }
 
 function summarizeState(state) {
+  state = normalizeStudyState(state);
   const history = state?.history || {};
   const studyByDate = state?.studyByDate || {};
   return {
@@ -232,9 +275,9 @@ async function handle(req, env) {
   if (url.pathname === "/api/state") {
     const user = await currentUser(req, env);
     if (!user) return json({ error: "未登录" }, 401);
-    if (req.method === "GET") return json(await readJson(env.HAPPY_ENGLISH_KV, `state:${user.id}`, DEFAULT_STATE));
+    if (req.method === "GET") return json(normalizeStudyState(await readJson(env.HAPPY_ENGLISH_KV, `state:${user.id}`, DEFAULT_STATE)));
     if (req.method === "PUT") {
-      const nextState = await req.json().catch(() => ({}));
+      const nextState = normalizeStudyState(await req.json().catch(() => ({})));
       await env.HAPPY_ENGLISH_KV.put(`state:${user.id}`, JSON.stringify(nextState));
       user.last_active_at = new Date().toISOString();
       await env.HAPPY_ENGLISH_KV.put(`user:${user.id}`, JSON.stringify(user));

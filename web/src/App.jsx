@@ -226,8 +226,37 @@ function evaluateWords(targetEn, transcript) {
 const shuffle = (a) => [...a].sort(() => Math.random() - 0.5);
 
 const STAGES = ["学单词", "自己讲一遍", "学句子", "单词测验"];
-const defaultState = { day: 1, stage: 0, stageDay: 1, log: {}, wordLog: {}, history: {}, weakQueue: [], studySeconds: 0, studyByDate: {}, customItems: [] };
+const defaultState = { day: 1, startDate: null, stage: 0, stageDay: 1, log: {}, wordLog: {}, history: {}, weakQueue: [], studySeconds: 0, studyByDate: {}, customItems: [] };
 const todayKey = () => new Date().toISOString().slice(0, 10);
+const dateFromKey = (key) => new Date(`${key}T00:00:00Z`);
+const addDays = (key, days) => new Date(dateFromKey(key).getTime() + days * 86400000).toISOString().slice(0, 10);
+const daysBetween = (start, end) => Math.floor((dateFromKey(end) - dateFromKey(start)) / 86400000);
+const isDateKey = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
+const normalizeStudyState = (raw, today = todayKey()) => {
+  const input = raw && typeof raw === "object" ? raw : {};
+  const studyByDate = input.studyByDate && typeof input.studyByDate === "object" ? input.studyByDate : {};
+  const firstStudyDate = Object.keys(studyByDate).filter(isDateKey).sort()[0];
+  const startDate = isDateKey(input.startDate) ? input.startDate : (firstStudyDate || today);
+  const safeStartDate = daysBetween(startDate, today) > 0 ? startDate : today;
+  const derivedDay = Math.max(1, daysBetween(safeStartDate, today) + 1);
+  const rawStageDay = Math.max(1, Number(input.stageDay || derivedDay));
+  const stageDay = Math.min(rawStageDay, derivedDay);
+  const stage = rawStageDay === derivedDay ? Math.max(0, Math.min(Number(input.stage || 0), STAGES.length - 1)) : 0;
+  return {
+    ...defaultState,
+    ...input,
+    log: input.log && typeof input.log === "object" ? input.log : {},
+    wordLog: input.wordLog && typeof input.wordLog === "object" ? input.wordLog : {},
+    history: input.history && typeof input.history === "object" ? input.history : {},
+    weakQueue: Array.isArray(input.weakQueue) ? input.weakQueue : [],
+    studyByDate,
+    customItems: Array.isArray(input.customItems) ? input.customItems : [],
+    startDate: safeStartDate,
+    day: derivedDay,
+    stage,
+    stageDay,
+  };
+};
 const formatDateTime = (s) => s ? new Date(s).toLocaleString("zh-CN", { hour12: false }) : "—";
 const formatMinutes = (seconds) => `${Math.round(Number(seconds || 0) / 60)} 分钟`;
 const polishEnglish = (en, zh = "") => {
@@ -276,6 +305,14 @@ export default function App() {
   };
 
   const day = state.day;
+  const allowDemoAdvance = new URLSearchParams(window.location.search).get("demo") === "1";
+
+  const applyFetchedState = async () => {
+    const fetched = (await fetchState()) || defaultState;
+    const normalized = normalizeStudyState(fetched);
+    if (JSON.stringify(fetched) !== JSON.stringify(normalized)) saveStateDebounced(normalized);
+    return normalized;
+  };
 
   // 打开网页时：检查是否已登录（180天内免登录），已登录则拉取学习记录
   useEffect(() => {
@@ -285,7 +322,7 @@ export default function App() {
         const u = await fetchMe();
         if (u) {
           setMe(u);
-          setState((await fetchState()) || defaultState);
+          setState(await applyFetchedState());
         }
       } catch (e) {}
       setLoaded(true);
@@ -315,14 +352,14 @@ export default function App() {
       if (document.hidden) return;
       const current = stateRef.current || defaultState;
       const key = todayKey();
-      const next = {
+      const next = normalizeStudyState({
         ...current,
         studySeconds: Number(current.studySeconds || 0) + tickSeconds,
         studyByDate: {
           ...(current.studyByDate || {}),
           [key]: Number(current.studyByDate?.[key] || 0) + tickSeconds,
         },
-      };
+      });
       stateRef.current = next;
       setState(next);
       saveStateDebounced(next);
@@ -349,7 +386,7 @@ export default function App() {
       : await fn(cleanUsername, password);
     if (!r.ok) { setAuthMsg(r.error || "出错了，请再试一次"); return; }
     resetDayUI();
-    setState((await fetchState()) || defaultState);
+    setState(await applyFetchedState());
     setMe({ nickname: r.nickname });
     setPassword("");
     setRecoveryCode("");
@@ -364,13 +401,14 @@ export default function App() {
   const startGuest = async () => {
     const guest = startGuestMode("本机学习");
     setMe(guest);
-    setState((await fetchState()) || defaultState);
+    setState(await applyFetchedState());
     setTab("today");
   };
 
   const save = (next) => {
-    setState(next);
-    saveStateDebounced(next); // 自动保存到服务器
+    const normalized = normalizeStudyState(next);
+    setState(normalized);
+    saveStateDebounced(normalized); // 自动保存到服务器
   };
 
   const addCustomLearning = async () => {
@@ -654,9 +692,11 @@ export default function App() {
     }
   };
 
-  const nextDay = () => {
-    setQuiz(null); setWordTest(null); setPronResults({}); setRevealed({}); setSelfMarked({});
-    save({ ...state, day: day + 1, stage: 0, stageDay: day + 1 });
+  const advanceDemoDay = () => {
+    resetDayUI();
+    const currentStart = state.startDate || todayKey();
+    const nextStart = addDays(currentStart, -1);
+    save({ ...state, startDate: nextStart, stage: 0, stageDay: day + 1 });
   };
 
   if (!loaded) return <div style={{ fontFamily: sans, padding: 40, textAlign: "center", fontSize: 20 }}>加载中…</div>;
@@ -878,7 +918,7 @@ export default function App() {
           <button onClick={logout} style={{ fontSize: 14, padding: "6px 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.card, color: C.inkSoft }}>
             👤 {me.nickname} · 退出登录
           </button>
-          {!isReviewMode && <button onClick={nextDay} style={{ fontSize: 14, padding: "6px 12px", borderRadius: 10, border: `2px dashed ${C.inkSoft}`, background: "transparent", color: C.inkSoft }}>
+          {allowDemoAdvance && !isReviewMode && <button onClick={advanceDemoDay} style={{ fontSize: 14, padding: "6px 12px", borderRadius: 10, border: `2px dashed ${C.inkSoft}`, background: "transparent", color: C.inkSoft }}>
             演示：进入第 {day + 1} 天 →
           </button>}
         </div>
