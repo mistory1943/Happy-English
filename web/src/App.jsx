@@ -129,7 +129,7 @@ const LESSONS = [
 ];
 
 const WORD_IPA = {
-  much: "/mʌtʃ/", bag: "/bæɡ/", apple: "/ˈæpəl/", take: "/teɪk/", thank: "/θæŋk/",
+  much: "/mʌtʃ/", bag: "/bæɡ/", apple: "/ˈæpəl/", apples: "/ˈæpəlz/", take: "/teɪk/", thank: "/θæŋk/",
   bank: "/bæŋk/", far: "/fɑːr/", turn: "/tɜːrn/", left: "/left/", map: "/mæp/",
   headache: "/ˈhedeɪk/", doctor: "/ˈdɑːktər/", medicine: "/ˈmedɪsən/", better: "/ˈbetər/", need: "/niːd/",
   table: "/ˈteɪbəl/", menu: "/ˈmenjuː/", water: "/ˈwɔːtər/", delicious: "/dɪˈlɪʃəs/", check: "/tʃek/",
@@ -137,9 +137,17 @@ const WORD_IPA = {
   morning: "/ˈmɔːrnɪŋ/", weather: "/ˈweðər/", grandson: "/ˈɡrænsʌn/", tomorrow: "/təˈmɑːroʊ/", today: "/təˈdeɪ/",
   speak: "/spiːk/", slowly: "/ˈsloʊli/", again: "/əˈɡen/", call: "/kɔːl/", evening: "/ˈiːvnɪŋ/",
   milk: "/mɪlk/", find: "/faɪnd/", sale: "/seɪl/", smaller: "/ˈsmɔːlər/", checkout: "/ˈtʃekaʊt/",
+  a: "/ə/", am: "/æm/", are: "/ɑːr/", at: "/æt/", back: "/bæk/", can: "/kæn/", cards: "/kɑːrdz/", come: "/kʌm/", corner: "/ˈkɔːrnər/", credit: "/ˈkredɪt/",
+  day: "/deɪ/", do: "/duː/", does: "/dʌz/", excuse: "/ɪkˈskjuːz/", feel: "/fiːl/", food: "/fuːd/", for: "/fɔːr/", from: "/frʌm/", get: "/ɡet/", go: "/ɡoʊ/",
+  good: "/ɡʊd/", have: "/hæv/", hello: "/həˈloʊ/", help: "/help/", here: "/hɪr/", hot: "/hɑːt/", how: "/haʊ/", i: "/aɪ/", is: "/ɪz/", it: "/ɪt/",
+  just: "/dʒʌst/", later: "/ˈleɪtər/", like: "/laɪk/", looking: "/ˈlʊkɪŋ/", mary: "/ˈmeri/", may: "/meɪ/", me: "/miː/", moved: "/muːvd/", my: "/maɪ/", nice: "/naɪs/",
+  now: "/naʊ/", off: "/ɔːf/", often: "/ˈɔːfən/", on: "/ɑːn/", please: "/pliːz/", say: "/seɪ/", see: "/siː/", should: "/ʃʊd/", show: "/ʃoʊ/", size: "/saɪz/",
+  some: "/sʌm/", taken: "/ˈteɪkən/", tell: "/tel/", that: "/ðæt/", the: "/ðə/", this: "/ðɪs/", to: "/tuː/", two: "/tuː/", we: "/wiː/", when: "/wen/",
+  where: "/wer/", will: "/wɪl/", would: "/wʊd/", you: "/juː/", your: "/jʊr/",
 };
-const WordIPA = ({ word, style = {} }) => WORD_IPA[word] ? (
-  <div style={{ fontFamily: serif, fontSize: 22, color: C.persimmon, fontWeight: 700, marginTop: 4, letterSpacing: 0.2, ...style }}>{WORD_IPA[word]}</div>
+const ipaForWord = (word) => WORD_IPA[String(word || "").toLowerCase()];
+const WordIPA = ({ word, style = {} }) => ipaForWord(word) ? (
+  <div style={{ fontFamily: serif, fontSize: 22, color: C.persimmon, fontWeight: 700, marginTop: 4, letterSpacing: 0.2, ...style }}>{ipaForWord(word)}</div>
 ) : null;
 
 const SentenceIPA = ({ text, style = {} }) => {
